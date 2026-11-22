@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-ngfw"
+version = "1.0.0"
+description = "Two-Tier Personal System Shield & Out-of-Band Router NGFW, L7 DPI, TLS JA3 & Anti-Rootkit SOC"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "gen3space" }]
+keywords = [
+    "cybersecurity",
+    "ngfw",
+    "ids",
+    "dpi",
+    "ja3",
+    "anti-rootkit",
+    "openwrt",
+    "network-security",
+    "soc",
+    "threat-intelligence",
+    "firewall",
+    "pcap",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+    "Topic :: System :: Networking :: Firewalls",
+]
+dependencies = [
+    "fastapi>=0.110.0",
+    "pydantic>=2.0.0",
+    "uvicorn[standard]>=0.27.0",
+    "psutil>=5.9.0",
+    "dnspython>=2.5.0",
+    "requests>=2.31.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/gen3space/AEGIS"
+Repository = "https://github.com/gen3space/AEGIS"
+Documentation = "https://github.com/gen3space/AEGIS/tree/main/docs"
+Issues = "https://github.com/gen3space/AEGIS/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "httpx>=0.27.0",
+    "ruff>=0.4.0",
+    "pyinstaller>=6.0.0",
+]
+
+[project.scripts]
+aegis = "aegis.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["aegis*"]
+
+[tool.setuptools.package-data]
+aegis = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
