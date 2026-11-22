@@ -1,0 +1,14 @@
+services:
+  aegis:
+    build: ..
+    container_name: aegis-shield
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - AEGIS_MODE=auto
+      - AEGIS_BIND_HOST=127.0.0.1
+      - AEGIS_BIND_PORT=8765
+    volumes:
+      - ../data:/app/data
+      # Optional: mount read-only SSH key to connect to your LAN router (Tier 2)
+      # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro

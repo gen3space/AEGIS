@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aegis // Personal System &amp; Network Digital Shield</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- Top Command Ribbon -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-shield" aria-hidden="true">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">
+          <span>AEGIS // DIGITAL SHIELD</span>
+          <span id="tierBadgePill" class="tier-pill">TIER 1: SYSTEM</span>
+          <span id="captureStatusPill" class="status-pill">
+            <span class="dot"></span>
+            <span id="captureStatusText">CONNECTING...</span>
+          </span>
+        </div>
+        <div class="brand-sub" id="routerMetaSub">
+          Initializing telemetry engine...
+        </div>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <div class="mode-seg" role="group" aria-label="Shield Tier">
+        <button id="btnModeSystem" class="seg-btn active" onclick="quickSwitchMode('system')" data-i18n-title="tip_mode_system">
+          💻 <span data-i18n="mode_system">System</span>
+        </button>
+        <button id="btnModeRouter" class="seg-btn" onclick="openRouterModal()" data-i18n-title="tip_mode_router">
+          🌐 <span data-i18n="mode_router">Router + AI</span>
+        </button>
+        <button id="btnModeDemo" class="seg-btn" onclick="quickSwitchMode('demo')" data-i18n-title="tip_mode_demo">
+          🧪 <span data-i18n="mode_demo">Demo</span>
+        </button>
+      </div>
+
+      <button id="btnCaptureToggle" class="btn btn-primary" onclick="toggleCapture()">⏸ Pause</button>
+      <button id="btnIdleWatch" class="btn" onclick="toggleIdleWatch()">
+        🛡 <span data-i18n="btn_idle_off">Silence Mode: OFF</span>
+      </button>
+      <input type="file" id="pcapFileInput" accept=".pcap,.cap" style="display:none;" onchange="handlePcapUpload(event)" />
+      <button class="btn" onclick="document.getElementById('pcapFileInput').click()" data-i18n-title="pcap_import_tip">
+        📂 <span data-i18n="btn_import_pcap">.PCAP</span>
+      </button>
+      <button class="btn" onclick="downloadPcap()" data-i18n-title="pcap_export_tip">
+        ⬇ <span data-i18n="btn_export_pcap">PCAP</span>
+      </button>
+      <button class="btn" onclick="downloadReport()" data-i18n-title="report_export_tip">
+        📄 <span data-i18n="btn_report">Report</span>
+      </button>
+      <button id="btnUpdateFeeds" class="btn" onclick="updateFeeds()">
+        ↻ <span data-i18n="btn_update_feeds">Feeds</span>
+      </button>
+      <button class="btn" onclick="clearSession()">
+        ✕ <span data-i18n="btn_clear">Reset</span>
+      </button>
+      <button id="btnLang" class="btn btn-lang" onclick="toggleLanguage()" title="Switch Language (EN / RU)">
+        EN
+      </button>
+    </div>
+  </header>
+
+  <div id="noticeBanner" class="notice-banner"></div>
+  <div id="errorBanner" class="error-banner"></div>
+
+  <!-- Tier 1 Upgrade Strip (shown when running local System Shield without Router) -->
+  <div id="tierUpgradeStrip" class="upgrade-strip" style="display:none;">
+    <div>
+      <strong data-i18n="strip_title">🛡 Tier 1 Personal System Shield is active on this OS.</strong>
+      <span data-i18n="strip_desc">Want whole-home Wi-Fi/IoT visibility, wire-speed TLS JA3 DPI, and Out-of-Band Rootkit detection?</span>
+    </div>
+    <button class="btn btn-primary" onclick="openRouterModal()">
+      ⚡ <span data-i18n="btn_unlock_tier2">Connect Router / Get AI Setup Prompt</span>
+    </button>
+  </div>
+
+  <main class="container">
+    <!-- KPI Cards + Live Oscilloscope -->
+    <section class="telemetry-grid">
+      <div class="kpi-card" id="kpiShieldCard">
+        <div class="kpi-label" data-i18n="kpi_shield">Shield Posture</div>
+        <div class="kpi-value" id="kpiShieldScore" style="color: var(--emerald);">100 / 100</div>
+        <div class="kpi-sub" id="kpiShieldSub">Tier 1 • Active</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label" data-i18n="kpi_throughput">Live Throughput</div>
+        <div class="kpi-value" id="kpiSpeed">↓ 0.00 / ↑ 0.00 Mbps</div>
+        <div class="kpi-sub" id="kpiTotals">Total: ↓ 0 B • ↑ 0 B</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label" data-i18n="kpi_sessions">Active Flows / Packets</div>
+        <div class="kpi-value" id="kpiFlows">0 flows</div>
+        <div class="kpi-sub" id="kpiPackets">Inspected: 0</div>
+      </div>
+
+      <div class="kpi-card" id="kpiGhostCard">
+        <div class="kpi-label" data-i18n="kpi_rootkit">Kernel &amp; Anti-Rootkit</div>
+        <div class="kpi-value" id="kpiGhost" style="color: var(--emerald);">0 hidden</div>
+        <div class="kpi-sub" id="kpiVerified">Verified OS sockets: 0</div>
+      </div>
+
+      <div class="kpi-card" id="kpiAlertsCard">
+        <div class="kpi-label" data-i18n="kpi_alerts">Security Events (IDS / IOC)</div>
+        <div class="kpi-value" id="kpiAlerts">0 CRIT • 0 HIGH</div>
+        <div class="kpi-sub" id="kpiAlertsMed">Medium: 0 • Intel: 0 IOC</div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <span data-i18n="chart_title">REAL-TIME THROUGHPUT (90s, MBPS)</span>
+          <div class="chart-legend">
+            <span style="color: var(--cyan);">● Download</span>
+            <span style="color: var(--purple);">● Upload</span>
+            <span style="color: var(--emerald);">● Total</span>
+          </div>
+        </div>
+        <canvas id="trafficCanvas" width="600" height="68"></canvas>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-flows" onclick="switchTab('tab-flows', this)">
+        <span data-i18n="tab_flows">Live Connections (NGFW)</span> <span id="badgeFlows" class="tab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-rootkit" onclick="switchTab('tab-rootkit', this)">
+        <span data-i18n="tab_rootkit">Processes, Signatures &amp; Anti-Rootkit</span> <span id="badgeProcs" class="tab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-dpi" onclick="switchTab('tab-dpi', this)">
+        <span data-i18n="tab_dpi">Apps, Network Hosts &amp; DNS</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-alerts" onclick="switchTab('tab-alerts', this)">
+        <span data-i18n="tab_alerts">Threat &amp; Anomaly Log (IDS)</span> <span id="badgeAlerts" class="tab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-shield" onclick="switchTab('tab-shield', this)">
+        <span data-i18n="tab_shield">Network Control &amp; Router Audit</span> <span id="badgeBlocks" class="tab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-intel" onclick="switchTab('tab-intel', this)">
+        <span data-i18n="tab_intel">Threat Intel Feeds</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: LIVE NGFW FLOW MATRIX -->
+    <section id="tab-flows" class="tab-pane active">
+      <div class="filter-bar">
+        <input id="filterSearch" class="input input-search" type="text" data-i18n-placeholder="search_placeholder" placeholder="Search domain, SNI, IP, JA3, process, SHA-256, BGP ASN..." oninput="renderAll()" />
+        <select id="filterDevice" class="select" onchange="renderAll()">
+          <option value="ALL" data-i18n="opt_all_devices">All Hosts / Devices</option>
+        </select>
+        <select id="filterRoute" class="select" onchange="renderAll()">
+          <option value="ALL" data-i18n="opt_all_routes">All Routes (WAN + VPN)</option>
+          <option value="WAN" data-i18n="opt_route_wan">WAN Direct Only</option>
+          <option value="VPN" data-i18n="opt_route_vpn">VPN Tunnel Only</option>
+          <option value="LAN" data-i18n="opt_route_lan">Internal LAN</option>
+        </select>
+        <select id="filterRisk" class="select" onchange="renderAll()">
+          <option value="ALL" data-i18n="opt_risk_all">All Risk Levels</option>
+          <option value="ALERTS" data-i18n="opt_risk_alerts">Alerts &amp; Anomalies Only</option>
+          <option value="NODNS" data-i18n="opt_risk_nodns">No Domain / Direct-to-IP</option>
+          <option value="GHOST" data-i18n="opt_risk_ghost">Hidden Ghost Sockets Only</option>
+        </select>
+        <label class="freeze-label">
+          <input type="checkbox" id="chkFreezeTable" /> <span data-i18n="chk_freeze">Freeze Table</span>
+        </label>
+      </div>
+
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="th_risk">Risk</th>
+                <th data-i18n="th_device">Host / Device</th>
+                <th data-i18n="th_process">OS Process / Signature</th>
+                <th data-i18n="th_app">Application</th>
+                <th data-i18n="th_domain">Domain / TLS SNI</th>
+                <th data-i18n="th_dest">Destination (IP:Port • Country / ASN)</th>
+                <th data-i18n="th_route">Route</th>
+                <th data-i18n="th_volume">Traffic (↓ / ↑)</th>
+                <th data-i18n="th_rate">Rate</th>
+              </tr>
+            </thead>
+            <tbody id="flowsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: PROCESSES, SIGNATURES & ANTI-ROOTKIT -->
+    <section id="tab-rootkit" class="tab-pane">
+      <div class="explain-box" id="rootkitExplainBox"></div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span data-i18n="panel_procs_title">Active Host Executables Communicating on the Network</span>
+          <span id="pcAuditMeta" class="mono" style="color: var(--text-muted); font-weight: 400;"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>PID</th>
+                <th data-i18n="th_proc_exe">Process</th>
+                <th data-i18n="th_proc_sig">Code Signature</th>
+                <th>SHA-256</th>
+                <th data-i18n="th_proc_path">Executable Path</th>
+                <th data-i18n="th_flows_cnt">Flows</th>
+                <th data-i18n="th_sample_targets">Sample Remote Targets</th>
+              </tr>
+            </thead>
+            <tbody id="procsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: L7 DPI APPS, DEVICES & DNS -->
+    <section id="tab-dpi" class="tab-pane">
+      <div class="split-2">
+        <div class="panel">
+          <div class="panel-header">
+            <span data-i18n="panel_top_apps">Top Identified Applications &amp; Services</span>
+          </div>
+          <div id="appsContainer" style="max-height: 360px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span data-i18n="panel_lan_devices">Discovered Hosts &amp; LAN Inventory (Click to Filter)</span>
+          </div>
+          <div class="table-wrap" style="max-height: 360px;">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_device">Device</th>
+                  <th>IP</th>
+                  <th>MAC</th>
+                  <th data-i18n="th_flows_cnt">Flows</th>
+                  <th data-i18n="th_volume">Traffic (↓ / ↑)</th>
+                  <th data-i18n="th_alerts_cnt">Alerts</th>
+                </tr>
+              </thead>
+              <tbody id="devicesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span data-i18n="panel_passive_dns">DNS Resolution Stream (Gateway Passive DNS / OS Resolver Cache)</span>
+        </div>
+        <div class="table-wrap" style="max-height: 290px;">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="th_time">Time</th>
+                <th data-i18n="th_device">Host</th>
+                <th data-i18n="th_qname">Domain (QNAME)</th>
+                <th data-i18n="th_resolved">Resolved IPs (A / AAAA)</th>
+              </tr>
+            </thead>
+            <tbody id="dnsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: IDS / THREAT ALERTS -->
+    <section id="tab-alerts" class="tab-pane">
+      <div class="panel">
+        <div class="panel-header">
+          <span data-i18n="panel_alerts_title">NGFW IDS Signature &amp; Behavioral Anomaly Log</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="th_time">Time</th>
+                <th data-i18n="th_severity">Severity</th>
+                <th data-i18n="th_sig_mitre">Rule / MITRE</th>
+                <th data-i18n="th_host_proc">Host / Process</th>
+                <th data-i18n="th_target">Target</th>
+                <th data-i18n="th_event_desc">Security Event &amp; Forensic Details</th>
+              </tr>
+            </thead>
+            <tbody id="alertsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: NETWORK CONTROL, TIER COMPARISON & ROUTER AUDIT -->
+    <section id="tab-shield" class="tab-pane">
+      <div class="split-2">
+        <!-- Active Router Containment Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span data-i18n="panel_blocks_title">Active Network Containment Rules (Router Firewall)</span>
+            <button class="btn" onclick="flushRouterRules()">✕ <span data-i18n="btn_flush_rules">Unblock All</span></button>
+          </div>
+          <div style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap;">
+            <input id="manualBlockIp" class="input mono" style="flex:1; min-width: 180px;" placeholder="e.g. 203.0.113.99" />
+            <button class="btn btn-primary" onclick="manualBlockRemoteIp()">🚫 <span data-i18n="btn_block_wan_ip">Block External IP on Router</span></button>
+          </div>
+          <div class="table-wrap" style="max-height: 300px;">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_target">Target IP</th>
+                  <th>Scope</th>
+                  <th>Backend</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody id="rulesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Router Security Hardening Audit Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span data-i18n="panel_audit_title">Router Perimeter Security Audit (Read-Only)</span>
+            <button id="btnRunAudit" class="btn btn-primary" onclick="runRouterAudit()">🔍 <span data-i18n="btn_run_audit">Run Router Audit</span></button>
+          </div>
+          <div id="routerAuditContainer" style="padding: 14px;"></div>
+        </div>
+      </div>
+
+      <!-- Two-Tier Architecture Matrix -->
+      <div class="panel">
+        <div class="panel-header">
+          <span data-i18n="panel_tiers_title">Two-Tier Digital Shield Architecture: System Level vs. Router Network Level</span>
+          <button class="btn btn-primary" onclick="openRouterModal()">🤖 <span data-i18n="btn_open_ai_wizard">Router &amp; AI Setup Wizard</span></button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="th_capability">Capability</th>
+                <th>💻 Tier 1: System Shield (No Router)</th>
+                <th>🌐 Tier 2: Router Network Shield (SSH tcpdump)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>OS TCP/UDP Socket &amp; PID Attribution</strong></td>
+                <td><span class="sig-valid">✓ Live (250ms Kernel Poll)</span></td>
+                <td><span class="sig-valid">✓ Live + Cross-Host Verification</span></td>
+              </tr>
+              <tr>
+                <td><strong>Authenticode / codesign + SHA-256 Hashing</strong></td>
+                <td><span class="sig-valid">✓ Full Local Verification</span></td>
+                <td><span class="sig-valid">✓ Full Local Verification</span></td>
+              </tr>
+              <tr>
+                <td><strong>50,000+ Threat Intel IOCs &amp; Silence Mode</strong></td>
+                <td><span class="sig-valid">✓ Active (IPs, URLhaus, Tor, LOLBins, Beaconing)</span></td>
+                <td><span class="sig-valid">✓ Active across ALL Home/Office Devices</span></td>
+              </tr>
+              <tr>
+                <td><strong>Phones, Smart TVs, Wi-Fi &amp; IoT Cameras</strong></td>
+                <td><span style="color:var(--text-dim);">This computer only</span></td>
+                <td><span class="sig-valid">✓ Whole LAN / VLAN Visibility (pre-VPN/NAT)</span></td>
+              </tr>
+              <tr>
+                <td><strong>Wire L7 DPI &amp; TLS JA3 C2 Fingerprinting</strong></td>
+                <td><span style="color:var(--text-muted);">OS DNS Cache + Port Heuristics</span></td>
+                <td><span class="sig-valid">✓ Full Packet Header DPI + RFC 8701 JA3</span></td>
+              </tr>
+              <tr>
+                <td><strong>Out-of-Band Kernel Rootkit Detection (GHOST SOCKET)</strong></td>
+                <td><span style="color:var(--text-dim);">Requires external vantage point</span></td>
+                <td><span class="sig-valid">✓ Unmasks Kernel/Raw-Socket Rootkits</span></td>
+              </tr>
+              <tr>
+                <td><strong>Active Containment &amp; Firewall Response</strong></td>
+                <td><span class="sig-valid">✓ Kill Rogue PID + OS Firewall Commands</span></td>
+                <td><span class="sig-valid">✓ Whole-LAN Router IP Block &amp; IoT Quarantine</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: THREAT INTEL FEEDS -->
+    <section id="tab-intel" class="tab-pane">
+      <div class="explain-box" id="intelExplainBox"></div>
+      <div class="panel">
+        <div class="panel-header">
+          <span data-i18n="panel_feeds_title">Active Threat Intelligence Feeds &amp; Signature Packs</span>
+          <button class="btn btn-primary" onclick="updateFeeds()">↻ <span data-i18n="btn_refresh_feeds_now">Download Fresh Feeds Now</span></button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="th_status">Status</th>
+                <th data-i18n="th_feed_name">Feed / Provider</th>
+                <th data-i18n="th_ioc_cnt">Loaded Indicators</th>
+                <th data-i18n="th_updated">Last Updated</th>
+              </tr>
+            </thead>
+            <tbody id="feedsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Slide-out Forensic Flow Drawer -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="closeDrawer()"></div>
+  <aside id="flowDrawer" class="drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="font-size:15px;" data-i18n="drawer_title">Forensic Flow Inspection &amp; Active Response</h3>
+      <button class="btn" onclick="closeDrawer()">✕ <span data-i18n="btn_close">Close</span></button>
+    </div>
+    <div id="drawerContent"></div>
+  </aside>
+
+  <!-- Router Connection & AI Setup Prompt Modal -->
+  <div id="routerModalBackdrop" class="modal-backdrop" onclick="closeRouterModal()"></div>
+  <div id="routerModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3>🌐 <span data-i18n="modal_router_title">Tier 2 Router Shield &amp; AI Setup Assistant</span></h3>
+      <button class="btn" onclick="closeRouterModal()">✕</button>
+    </div>
+
+    <div class="tabs" style="margin-bottom: 14px;">
+      <button id="mTabConnectBtn" class="tab-btn active" onclick="switchModalTab('connect')">
+        🔌 <span data-i18n="mtab_connect">1. Connect Router via SSH</span>
+      </button>
+      <button id="mTabAiBtn" class="tab-btn" onclick="switchModalTab('ai')">
+        🤖 <span data-i18n="mtab_ai">2. AI Prompt to Configure My Router</span>
+      </button>
+    </div>
+
+    <!-- Modal Pane 1: Live SSH Connection -->
+    <div id="mPaneConnect">
+      <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;" data-i18n="modal_connect_desc">
+        Aegis streams packet headers over SSH using lightweight tcpdump (0% router CPU/RAM when paused or closed). Uses public-key authentication only — never stores router passwords.
+      </p>
+      <div class="form-grid">
+        <div>
+          <label class="field-lbl">Router IP / Host</label>
+          <input id="inpRouterHost" class="input mono" style="width:100%;" value="192.168.1.1" />
+        </div>
+        <div>
+          <label class="field-lbl">SSH Port</label>
+          <input id="inpRouterPort" class="input mono" type="number" style="width:100%;" value="22" />
+        </div>
+        <div>
+          <label class="field-lbl">SSH Username</label>
+          <input id="inpRouterUser" class="input mono" style="width:100%;" value="root" />
+        </div>
+        <div>
+          <label class="field-lbl">LAN Interface</label>
+          <input id="inpRouterIface" class="input mono" style="width:100%;" value="br-lan" />
+        </div>
+        <div style="grid-column: span 2;">
+          <label class="field-lbl">SSH Private Key Path (optional, leave empty for default ~/.ssh/id_ed25519)</label>
+          <input id="inpRouterKey" class="input mono" style="width:100%;" placeholder="~/.ssh/id_ed25519" />
+        </div>
+      </div>
+
+      <div id="routerDiagBox" class="diag-box" style="display:none;"></div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+        <button class="btn" onclick="testRouterDiagnostics()">🔍 <span data-i18n="btn_test_ssh">Test SSH &amp; tcpdump</span></button>
+        <button class="btn btn-primary" onclick="connectRouterLive()">⚡ <span data-i18n="btn_activate_tier2">Connect &amp; Enable Tier 2</span></button>
+      </div>
+    </div>
+
+    <!-- Modal Pane 2: Tailored AI Setup Prompt Generator -->
+    <div id="mPaneAi" style="display:none;">
+      <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px;" data-i18n="modal_ai_desc">
+        Enter your router model below and copy the generated prompt into ChatGPT, Claude, Gemini, or DeepSeek. The AI will give you exact, safe commands to set up SSH keys and tcpdump for Aegis.
+      </p>
+      <div class="form-grid" style="margin-bottom:10px;">
+        <div>
+          <label class="field-lbl" data-i18n="lbl_router_model">Your Router Model / Firmware</label>
+          <input id="inpAiRouterModel" class="input" style="width:100%;" value="OpenWrt 24.10 / GL.iNet / Keenetic" oninput="refreshAiPrompt()" />
+        </div>
+        <div>
+          <label class="field-lbl" data-i18n="lbl_router_ip">Router LAN IP</label>
+          <input id="inpAiRouterIp" class="input mono" style="width:100%;" value="192.168.1.1" oninput="refreshAiPrompt()" />
+        </div>
+      </div>
+      <textarea id="aiPromptTextarea" class="prompt-area mono" readonly></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <span id="copyConfirmMsg" style="color:var(--emerald);font-size:12px;"></span>
+        <button class="btn btn-primary" onclick="copyAiPrompt()">📋 <span data-i18n="btn_copy_prompt">Copy AI Prompt</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
